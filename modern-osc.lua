@@ -3,10 +3,11 @@ local mp = require 'mp'
 local assdraw = require 'mp.assdraw'
 local msg = require 'mp.msg'
 local options = require 'mp.options'
-local is_windows = mp.get_property('platform') == 'windows' or package.config:sub(1, 1) == '\\'
+local platform = mp.get_property('platform')
+local is_windows = platform == 'windows' or package.config:sub(1, 1) == '\\'
 
 local opt = {
-    width = 540, sidebar_width = 264, hide_delay = 2, scale = 1, sidebar_open = false,
+    language = 'auto', width = 540, sidebar_width = 264, hide_delay = 2, scale = 1, sidebar_open = false,
     controls_left = 'volume', controls_center = 'back,play,forward', controls_right = 'tracks,playlist,settings,fullscreen',
     controls_layout = 'floating', button_size = 32, button_spacing = 2,
     sidebar_side = 'right', sidebar_mode = 'docked', sidebar_layout = 'stacked', sidebar_order = 'sub,audio',
@@ -57,11 +58,68 @@ local control_groups = {}
 local sidebar_order = {}
 local control_names = {volume = true, back = true, play = true, forward = true, tracks = true,
     playlist = true, settings = true, pin = true, fullscreen = true}
-local sidebar_titles = {tracks = '字幕與音軌', playlist = '播放清單', settings = '播放設定'}
-local list_titles = {sub = '字幕', audio = '音軌', speed = '播放速度'}
+local sidebar_views = {tracks = true, playlist = true, settings = true}
 local list_properties = {sub = 'sid', audio = 'aid', playlist = 'playlist-pos', speed = 'speed'}
-local languages = { zho = '中文', chi = '中文', zh = '中文', cmn = '國語',
-    ['zh-Hant'] = '繁體中文', eng = 'English', en = 'English', jpn = '日本語', ja = '日本語', kor = '한국어' }
+local track_languages = {
+    zho = '中文', chi = '中文', zh = '中文', cmn = '國語', ['zh-hant'] = '繁體中文', ['zh-tw'] = '繁體中文',
+    ['zh-hans'] = '简体中文', ['zh-cn'] = '简体中文', eng = 'English', en = 'English',
+    jpn = '日本語', ja = '日本語', spa = 'Español', es = 'Español', kor = '한국어', ko = '한국어',
+}
+
+local translations = {
+    en = {
+        tracks = 'Subtitles & audio', sub = 'Subtitles', audio = 'Audio', playlist = 'Playlist',
+        settings = 'Playback settings', speed = 'Playback speed',
+        subtitles_off = 'Subtitles off', no_audio = 'No audio tracks', empty_playlist = 'The playlist is empty',
+        unnamed_subtitle = 'Subtitle %d', unnamed_audio = 'Audio track %d', playlist_item = 'Item %d',
+        channel = '%d channel', channels = '%d channels', external = 'External', embedded = 'Embedded',
+        back = 'Back 5 seconds', forward = 'Forward 5 seconds', mute = 'Mute', unmute = 'Unmute',
+        play = 'Play', pause = 'Pause', pin = 'Pin controls', unpin = 'Unpin controls',
+        fullscreen = 'Fullscreen', exit_fullscreen = 'Exit fullscreen',
+    },
+    ['zh-TW'] = {
+        tracks = '字幕與音軌', sub = '字幕', audio = '音軌', playlist = '播放清單',
+        settings = '播放設定', speed = '播放速度',
+        subtitles_off = '關閉字幕', no_audio = '這個檔案沒有音軌', empty_playlist = '播放清單是空的',
+        unnamed_subtitle = '字幕 %d', unnamed_audio = '音軌 %d', playlist_item = '播放項目 %d',
+        channel = '%d 聲道', channels = '%d 聲道', external = '外掛', embedded = '內嵌',
+        back = '倒退 5 秒', forward = '前進 5 秒', mute = '靜音', unmute = '取消靜音',
+        play = '播放', pause = '暫停', pin = '固定控制列', unpin = '解除固定控制列',
+        fullscreen = '全螢幕', exit_fullscreen = '離開全螢幕',
+    },
+    ['zh-CN'] = {
+        tracks = '字幕与音轨', sub = '字幕', audio = '音轨', playlist = '播放列表',
+        settings = '播放设置', speed = '播放速度',
+        subtitles_off = '关闭字幕', no_audio = '此文件没有音轨', empty_playlist = '播放列表为空',
+        unnamed_subtitle = '字幕 %d', unnamed_audio = '音轨 %d', playlist_item = '播放项目 %d',
+        channel = '%d 声道', channels = '%d 声道', external = '外挂', embedded = '内嵌',
+        back = '后退 5 秒', forward = '前进 5 秒', mute = '静音', unmute = '取消静音',
+        play = '播放', pause = '暂停', pin = '固定控制栏', unpin = '取消固定控制栏',
+        fullscreen = '全屏', exit_fullscreen = '退出全屏',
+    },
+    ja = {
+        tracks = '字幕と音声', sub = '字幕', audio = '音声', playlist = '再生リスト',
+        settings = '再生設定', speed = '再生速度',
+        subtitles_off = '字幕なし', no_audio = '音声トラックがありません', empty_playlist = '再生リストは空です',
+        unnamed_subtitle = '字幕 %d', unnamed_audio = '音声トラック %d', playlist_item = '項目 %d',
+        channel = '%d チャンネル', channels = '%d チャンネル', external = '外部', embedded = '埋め込み',
+        back = '5 秒戻る', forward = '5 秒進む', mute = 'ミュート', unmute = 'ミュート解除',
+        play = '再生', pause = '一時停止', pin = '操作バーを固定', unpin = '操作バーの固定を解除',
+        fullscreen = '全画面表示', exit_fullscreen = '全画面表示を終了',
+    },
+    es = {
+        tracks = 'Subtítulos y audio', sub = 'Subtítulos', audio = 'Audio', playlist = 'Lista de reproducción',
+        settings = 'Ajustes de reproducción', speed = 'Velocidad de reproducción',
+        subtitles_off = 'Sin subtítulos', no_audio = 'No hay pistas de audio', empty_playlist = 'La lista está vacía',
+        unnamed_subtitle = 'Subtítulo %d', unnamed_audio = 'Pista de audio %d', playlist_item = 'Elemento %d',
+        channel = '%d canal', channels = '%d canales', external = 'Externa', embedded = 'Integrada',
+        back = 'Retroceder 5 segundos', forward = 'Avanzar 5 segundos', mute = 'Silenciar', unmute = 'Activar sonido',
+        play = 'Reproducir', pause = 'Pausar', pin = 'Fijar controles', unpin = 'Quitar fijación',
+        fullscreen = 'Pantalla completa', exit_fullscreen = 'Salir de pantalla completa',
+    },
+}
+local language = 'en'
+local system_language
 
 local function clamp(value, low, high) return math.max(low, math.min(high, value)) end
 local function bgr(value) return value:sub(5, 6) .. value:sub(3, 4) .. value:sub(1, 2) end
@@ -80,6 +138,69 @@ local function redraw()
     if draw_pending then return end
     draw_pending = true
     mp.add_timeout(0, function() draw_pending = false; draw() end)
+end
+local function language_for(tag)
+    local base, variant = tag:lower():gsub('_', '-'):match('^([a-z]+)%-?([a-z]*)')
+    if base == 'zh' then
+        return (variant == 'hans' or variant == 'cn' or variant == 'sg' or variant == 'chs') and 'zh-CN' or 'zh-TW'
+    end
+    return translations[base] and base or nil
+end
+local function preferred_language(preferences)
+    for tag in preferences:gmatch('[a-zA-Z][%w_%-%.@]*') do
+        local match = language_for(tag)
+        if match then return match end
+    end
+end
+local function update_language()
+    local requested = opt.language:lower():match('^%s*(.-)%s*$')
+    if requested ~= 'auto' then
+        local match = language_for(requested)
+        language = match or 'en'
+        if not match then msg.warn('Unsupported language: ' .. opt.language) end
+        return
+    end
+    if system_language then
+        language = system_language
+        return
+    end
+
+    local environment = os.getenv('LC_ALL') or os.getenv('LC_MESSAGES') or os.getenv('LANGUAGE') or os.getenv('LANG') or ''
+    system_language = preferred_language(environment) or 'en'
+    language = system_language
+    local command
+    if is_windows then
+        local powershell = (os.getenv('SystemRoot') or 'C:\\Windows') .. '\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+        command = {powershell, '-NoProfile', '-NonInteractive', '-Command', '$PSUICulture'}
+    elseif platform == 'darwin' then
+        command = {'/usr/bin/defaults', 'read', '-g', 'AppleLanguages'}
+    end
+    if not command then return end
+
+    mp.command_native_async({name = 'subprocess', args = command, playback_only = false,
+        capture_stdout = true, capture_stderr = true, capture_size = 4096}, function(success, result)
+        if not success or not result or result.status ~= 0 then return end
+        system_language = preferred_language(result.stdout or '') or system_language
+        if opt.language:lower():match('^%s*(.-)%s*$') == 'auto' then
+            language = system_language
+            redraw()
+        end
+    end)
+end
+local function translate(key, ...)
+    local value = translations[language][key] or translations.en[key]
+    if select('#', ...) == 0 then return value end
+    return string.format(value, ...)
+end
+local function caption_em(value)
+    local units = 0
+    for glyph in value:gmatch('[%z\1-\127\194-\244][\128-\191]*') do
+        units = units + (#glyph >= 3 and 1 or glyph == ' ' and .35 or .67)
+    end
+    return units
+end
+local function fitted_size(value, size, width)
+    return math.min(size, width / (math.max(1, caption_em(value)) * opt.font_scale))
 end
 local function parse_order(value, allowed, seen)
     local result = {}
@@ -129,7 +250,8 @@ local function button(ass, x, y, w, value, action, alpha, height, data)
     height = height or opt.button_size
     local hit = region(x, y, w, height, action, data)
     if hovered(hit) then rectangle(ass, x, y, w, height, colors.hover, opt.radius * .4, alpha) end
-    text(ass, x + w / 2, y + height / 2, 13, value, colors.text, alpha, 5)
+    local clip = {x = x + 6, y = y, w = w - 12, h = height}
+    text(ass, x + w / 2, y + height / 2, fitted_size(value, 13, clip.w), value, colors.text, alpha, 5, clip)
     return hit
 end
 local function tracks(kind)
@@ -137,17 +259,26 @@ local function tracks(kind)
     local selected = mp.get_property(list_properties[kind], 'no')
     for _, track in ipairs(mp.get_property_native('track-list', {})) do
         if track.type == kind then
-            local name = track.title or languages[track.lang] or track.lang
-            if not name or name == '' then name = (kind == 'sub' and '字幕 ' or '音軌 ') .. track.id end
+            local tag = (track.lang or ''):lower():gsub('_', '-')
+            local name = track.title
+            if not name or name == '' then
+                name = track_languages[tag] or track_languages[tag:match('^[a-z]+')] or track.lang
+            end
+            if not name or name == '' then
+                name = translate(kind == 'sub' and 'unnamed_subtitle' or 'unnamed_audio', track.id)
+            end
             local detail = {}
             if track.lang then detail[#detail + 1] = track.lang end
             if track.codec then detail[#detail + 1] = track.codec:upper() end
-            if track['demux-channel-count'] then detail[#detail + 1] = track['demux-channel-count'] .. ' 聲道' end
-            detail[#detail + 1] = track.external and '外掛' or '內嵌'
+            local channels = track['demux-channel-count']
+            if channels then detail[#detail + 1] = translate(channels == 1 and 'channel' or 'channels', channels) end
+            detail[#detail + 1] = translate(track.external and 'external' or 'embedded')
             result[#result + 1] = {id = track.id, name = name, detail = table.concat(detail, ' · '), selected = tostring(track.id) == selected}
         end
     end
-    if kind == 'sub' then result[#result + 1] = {id = 'no', name = '關閉字幕', detail = '', selected = selected == 'no'} end
+    if kind == 'sub' then
+        result[#result + 1] = {id = 'no', name = translate('subtitles_off'), detail = '', selected = selected == 'no'}
+    end
     return result
 end
 local function playlist()
@@ -159,7 +290,7 @@ local function playlist()
         if not name or name == '' then
             if not path:find('://', 1, true) then name = path:match('[^/\\]+$') end
         end
-        if not name or name == '' or name:find('://', 1, true) then name = '播放項目 ' .. index end
+        if not name or name == '' or name:find('://', 1, true) then name = translate('playlist_item', index) end
         result[#result + 1] = {id = index - 1, name = name, detail = '', selected = index - 1 == current}
     end
     return result
@@ -216,7 +347,7 @@ local function set_bindings(active)
 end
 local function publish()
     mp.set_property_native('user-data/modern-osc', {
-        sidebar = state.sidebar, sidebar_view = state.sidebar_view, pinned = state.pinned, width = opt.width,
+        language = language, sidebar = state.sidebar, sidebar_view = state.sidebar_view, pinned = state.pinned, width = opt.width,
         subtitles = tracks('sub'), audio = tracks('audio'), hud = state.hud,
         sidebar_side = opt.sidebar_side, sidebar_layout = state.effective_sidebar_layout,
         sidebar_order = sidebar_order, active_group = state.active_group,
@@ -227,7 +358,8 @@ local function publish()
 end
 local function draw_group(ass, x, y, width, kind, rows, list, show_heading)
     if show_heading then
-        text(ass, x + 17, y + state.group_heading / 2, 13, list_titles[kind], colors.muted)
+        local heading = translate(kind)
+        text(ass, x + 17, y + state.group_heading / 2, fitted_size(heading, 13, width - 34), heading, colors.muted)
         y = y + state.group_heading
     end
     local scroll = state.scroll[kind] or 0
@@ -246,7 +378,8 @@ local function draw_group(ass, x, y, width, kind, rows, list, show_heading)
     local row_height = state.track_row_height
     state.groups[kind] = {x = x, y = y, w = width, h = rows * row_height, rows = rows, count = #list}
     if #list == 0 then
-        text(ass, x + 18, y + 22, 13, kind == 'audio' and '這個檔案沒有音軌' or '播放清單是空的', colors.muted)
+        local message = translate(kind == 'audio' and 'no_audio' or 'empty_playlist')
+        text(ass, x + 18, y + 22, fitted_size(message, 13, width - 36), message, colors.muted)
     end
     for slot = 1, rows do
         local track = list[scroll + slot]
@@ -260,7 +393,8 @@ local function draw_group(ass, x, y, width, kind, rows, list, show_heading)
         rectangle(ass, x + 21, cy - 5, 10, 10, colors.track, 5)
         if track.selected then rectangle(ass, x + 23, cy - 3, 6, 6, colors.accent, 3) end
         local clip = {x = x + 42, y = row_y, w = width - 57, h = row_height - 3}
-        text(ass, x + 43, row_y + (track.detail == '' and row_height / 2 or row_height * .31), 14, track.name, colors.text, 1, 4, clip)
+        local name_size = track.id == 'no' and fitted_size(track.name, 14, clip.w - 1) or 14
+        text(ass, x + 43, row_y + (track.detail == '' and row_height / 2 or row_height * .31), name_size, track.name, colors.text, 1, 4, clip)
         if track.detail ~= '' then text(ass, x + 43, row_y + row_height * .69, 11, track.detail, colors.muted, 1, 4, clip) end
     end
     if #list > rows then
@@ -342,6 +476,7 @@ local function control_heights(body_height)
 end
 
 local function apply_options(changed)
+    if not changed or changed.language then update_language() end
     opt.width = math.max(180, opt.width)
     opt.sidebar_width = math.max(160, opt.sidebar_width)
     opt.hide_delay = math.max(0, opt.hide_delay)
@@ -465,9 +600,6 @@ do
     icon_drawings.pause = ass.text
 end
 
-local control_labels = {back = '倒退 5 秒', forward = '前進 5 秒', tracks = sidebar_titles.tracks,
-    playlist = sidebar_titles.playlist, settings = sidebar_titles.settings}
-
 local function draw_icon(ass, icon, x, y, size, color, alpha)
     local scale = size * (100 / 24)
     ass:new_event()
@@ -521,23 +653,23 @@ local function draw_control(ass, cell, x, y, alpha)
         local muted = mp.get_property_native('mute')
         local button_width = math.min(opt.button_size, cell.w - 16)
         icon_button(ass, x, y, button_width, height, 'mute', muted and 'mute' or 'volume',
-            muted and '取消靜音' or '靜音', alpha)
+            translate(muted and 'unmute' or 'mute'), alpha)
         local slider = region(x + button_width + 2, y + 4, cell.w - button_width - 4, height - 8, 'volume')
         draw_slider(ass, slider.x, y + height / 2, slider.w, volume / 100, alpha, muted and colors.muted or colors.accent)
         return
     end
-    local icon, label = name, control_labels[name]
+    local icon, label_key = name, name
     local selected = state.sidebar and state.sidebar_view == name
     if name == 'play' then
         icon = mp.get_property_native('pause') and 'play' or 'pause'
-        label = icon == 'play' and '播放' or '暫停'
+        label_key = icon
     elseif name == 'pin' then
         selected = state.pinned
-        label = selected and '解除固定' or '固定控制列'
+        label_key = selected and 'unpin' or 'pin'
     elseif name == 'fullscreen' then
-        label = mp.get_property_native('fullscreen') and '離開全螢幕' or '全螢幕'
+        label_key = mp.get_property_native('fullscreen') and 'exit_fullscreen' or 'fullscreen'
     end
-    icon_button(ass, x, y, cell.w, height, name, icon, label, alpha, selected)
+    icon_button(ass, x, y, cell.w, height, name, icon, translate(label_key), alpha, selected)
 end
 
 local function draw_sidebar(ass, x, width, height)
@@ -545,9 +677,9 @@ local function draw_sidebar(ass, x, width, height)
     rectangle(ass, x, 0, width, height, colors.sidebar, 0, opt.sidebar_opacity)
     local header_height = math.ceil(math.max(50 * opt.font_scale, opt.button_size + 10))
     local header_clip = {x = x + 17, y = 0, w = width - 68, h = header_height}
-    local title_size = math.min(16, (width - 72) / (5 * opt.font_scale))
     local view = state.sidebar_view
-    text(ass, x + 17, header_height / 2, title_size, sidebar_titles[view], colors.text, 1, 4, header_clip)
+    local title = translate(view)
+    text(ass, x + 17, header_height / 2, fitted_size(title, 16, header_clip.w), title, colors.text, 1, 4, header_clip)
     button(ass, x + width - 44, (header_height - opt.button_size) / 2, 34, '×', 'close-sidebar', 1)
     local y = header_height + 9
     if view == 'playlist' then
@@ -555,7 +687,7 @@ local function draw_sidebar(ass, x, width, height)
         draw_group(ass, x, y, width, 'playlist', rows, playlist(), false)
         return
     elseif view == 'settings' then
-        local pin_label = state.pinned and '解除固定控制列' or '固定控制列'
+        local pin_label = translate(state.pinned and 'unpin' or 'pin')
         button(ass, x + 10, y, width - 20, pin_label, 'pin', 1, state.track_row_height)
         y = y + state.track_row_height + 6
         local rows = math.max(1, math.floor((height - y - state.group_heading - 13) / state.track_row_height))
@@ -572,7 +704,7 @@ local function draw_sidebar(ass, x, width, height)
         for index, kind in ipairs(sidebar_order) do
             local tab_x = x + 10 + (index - 1) * tab_width
             if state.active_group == kind then rectangle(ass, tab_x, y, tab_width, tab_height, colors.selected, opt.radius * .4, opt.sidebar_opacity) end
-            button(ass, tab_x, y, tab_width, list_titles[kind], 'tab', 1, tab_height, {kind = kind})
+            button(ass, tab_x, y, tab_width, translate(kind), 'tab', 1, tab_height, {kind = kind})
         end
         y = y + tab_height + 12
         local rows = math.max(1, math.floor((height - y - 13) / state.track_row_height))
@@ -661,11 +793,13 @@ draw = function()
         local seek = region(bx + time_width, timeline_y, bw - time_width * 2, timeline_height, 'seek')
         draw_slider(ass, seek.x, center_y, seek.w, duration > 0 and position / duration or nil, opacity, colors.accent)
         if state.hint then
-            local hint_w, hint_h = 100 * opt.font_scale, 24 * opt.font_scale
+            local label = state.hint.label
+            local hint_w = math.min(viewport.w - 8, math.max(48, caption_em(label) * 11 + 16) * opt.font_scale)
+            local hint_h = 24 * opt.font_scale
             local hint_x = clamp(state.hint.x - hint_w / 2, viewport.x + 4, viewport.x + viewport.w - hint_w - 4)
             local hint_y = by >= hint_h + 8 and by - hint_h - 6 or by + bh + 6
             rectangle(ass, hint_x, hint_y, hint_w, hint_h, colors.panel, 6, opacity, colors.border)
-            text(ass, hint_x + hint_w / 2, hint_y + hint_h / 2, 11, state.hint.label, colors.text, opacity, 5)
+            text(ass, hint_x + hint_w / 2, hint_y + hint_h / 2, fitted_size(label, 11, hint_w - 16), label, colors.text, opacity, 5)
         end
     end
     local window_close = draw_window_close(ass, w)
@@ -721,7 +855,7 @@ click = function(event)
         local hit = state.pressed
         state.drag, state.pressed = nil, nil
         if hit and not event.canceled and contains(hit, state.mouse_x, state.mouse_y) then
-            if sidebar_titles[hit.action] then toggle_sidebar(hit.action)
+            if sidebar_views[hit.action] then toggle_sidebar(hit.action)
             elseif hit.action == 'close-sidebar' then close_sidebar()
             elseif hit.action == 'close-window' then mp.commandv('quit')
             elseif hit.action == 'play' then mp.commandv('no-osd', 'cycle', 'pause')
