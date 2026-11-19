@@ -3,6 +3,7 @@ local mp = require 'mp'
 local assdraw = require 'mp.assdraw'
 local msg = require 'mp.msg'
 local options = require 'mp.options'
+local is_windows = mp.get_property('platform') == 'windows' or package.config:sub(1, 1) == '\\'
 
 local opt = {
     width = 540, sidebar_width = 264, hide_delay = 2, scale = 1, sidebar_open = false,
@@ -413,6 +414,7 @@ local icon_paths = {
     settings = {{3, 5, 10, 5}, {13, 5, 21, 5}, {13, 3, 13, 7}, {3, 12, 7, 12}, {10, 12, 21, 12}, {7, 10, 7, 14},
         {3, 19, 14, 19}, {17, 19, 21, 19}, {17, 17, 17, 21}},
     fullscreen = {{3, 8, 3, 3, 8, 3}, {16, 3, 21, 3, 21, 8}, {21, 16, 21, 21, 16, 21}, {8, 21, 3, 21, 3, 16}},
+    close = {{5, 5, 19, 19}, {19, 5, 5, 19}},
     pin = {{8, 4, 16, 4}, {9.5, 4, 9.5, 10, 6, 14, 18, 14, 14.5, 10, 14.5, 4}, {12, 14, 12, 21}},
 }
 local icon_drawings = {}
@@ -466,6 +468,14 @@ end
 local control_labels = {back = '倒退 5 秒', forward = '前進 5 秒', tracks = sidebar_titles.tracks,
     playlist = sidebar_titles.playlist, settings = sidebar_titles.settings}
 
+local function draw_icon(ass, icon, x, y, size, color, alpha)
+    local scale = size * (100 / 24)
+    ass:new_event()
+    ass:append(string.format('{\\an7\\pos(%.2f,%.2f)\\fscx%.2f\\fscy%.2f\\bord0\\shad0\\1c&H%s&\\alpha&H%02X&}',
+        x, y, scale, scale, bgr(color), math.floor(255 * (1 - alpha))))
+    ass:append(icon_drawings[icon])
+end
+
 local function icon_button(ass, x, y, width, height, action, icon, label, alpha, selected)
     local hit = region(x, y, width, height, action)
     if hovered(hit) then
@@ -473,12 +483,26 @@ local function icon_button(ass, x, y, width, height, action, icon, label, alpha,
         state.hint = {x = x + width / 2, label = label}
     end
     local size = math.min(width, height, opt.button_size) * .52
-    local scale = size * (100 / 24)
-    ass:new_event()
-    ass:append(string.format('{\\an7\\pos(%.2f,%.2f)\\fscx%.2f\\fscy%.2f\\bord0\\shad0\\1c&H%s&\\alpha&H%02X&}',
-        x + (width - size) / 2, y + (height - size) / 2, scale, scale, bgr(selected and colors.accent or colors.text),
-        math.floor(255 * (1 - alpha))))
-    ass:append(icon_drawings[icon])
+    draw_icon(ass, icon, x + (width - size) / 2, y + (height - size) / 2, size,
+        selected and colors.accent or colors.text, alpha)
+end
+
+local function draw_window_close(ass, width)
+    if not is_windows then return end
+    local fullscreen = mp.get_property_native('fullscreen', false)
+    local has_title_bar = mp.get_property_native('border', true) and mp.get_property_native('title-bar', true)
+    if not fullscreen and has_title_bar then return end
+
+    local right = width
+    if state.sidebar_rect and opt.sidebar_side == 'right' then right = state.sidebar_rect.x end
+    local size, inset = 32, 8
+    local x = math.max(4, right - size - inset)
+    if fullscreen and not hovered({x = x - 16, y = 0, w = size + 24, h = size + 20}) then return end
+
+    local hit = region(x, inset, size, size, 'close-window')
+    rectangle(ass, x, inset, size, size, hovered(hit) and colors.hover or colors.panel, opt.radius * .5, 1, colors.border)
+    draw_icon(ass, 'close', x + 7, inset + 7, 18, colors.text, 1)
+    return hit
 end
 
 local function draw_slider(ass, x, y, width, progress, alpha, fill)
@@ -644,11 +668,12 @@ draw = function()
             text(ass, hint_x + hint_w / 2, hint_y + hint_h / 2, 11, state.hint.label, colors.text, opacity, 5)
         end
     end
+    local window_close = draw_window_close(ass, w)
     local raise_subs = opacity > .1 and by + bh > h - 65
     update_subtitle_margin(raise_subs and by or nil, h, scale, use_margins)
     local in_sidebar = state.hover and contains(state.sidebar_rect, state.mouse_x, state.mouse_y)
     local in_hud = opacity > .1 and state.hover and contains(state.hud, state.mouse_x, state.mouse_y)
-    set_bindings(in_sidebar or in_hud or state.drag ~= nil or state.pressed ~= nil)
+    set_bindings(in_sidebar or in_hud or hovered(window_close) or state.drag ~= nil or state.pressed ~= nil)
     local sidebar_visible = state.sidebar_rect ~= nil
     if sidebar_visible ~= escape_active then
         escape_active = sidebar_visible
@@ -698,6 +723,7 @@ click = function(event)
         if hit and not event.canceled and contains(hit, state.mouse_x, state.mouse_y) then
             if sidebar_titles[hit.action] then toggle_sidebar(hit.action)
             elseif hit.action == 'close-sidebar' then close_sidebar()
+            elseif hit.action == 'close-window' then mp.commandv('quit')
             elseif hit.action == 'play' then mp.commandv('no-osd', 'cycle', 'pause')
             elseif hit.action == 'back' then mp.commandv('no-osd', 'seek', -5, 'relative+exact')
             elseif hit.action == 'forward' then mp.commandv('no-osd', 'seek', 5, 'relative+exact')
@@ -752,7 +778,8 @@ mp.observe_property('mouse-pos', 'native', function(_, mouse)
     end
     redraw()
 end)
-for _, name in ipairs({'osd-dimensions', 'display-hidpi-scale', 'time-pos', 'duration', 'pause', 'volume', 'mute', 'path', 'fullscreen'}) do
+for _, name in ipairs({'osd-dimensions', 'display-hidpi-scale', 'time-pos', 'duration', 'pause', 'volume', 'mute', 'path',
+        'fullscreen', 'border', 'title-bar'}) do
     mp.observe_property(name, 'native', redraw)
 end
 for kind, property in pairs(list_properties) do

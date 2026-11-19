@@ -18,6 +18,8 @@ macOS 將 `modern-osc.lua` 放入 `~/.config/mpv/scripts/`，`modern-osc.conf` �
 
 Windows 將兩個檔案分別放入 mpv 設定目錄的 `scripts` 與 `script-opts` 子目錄。常見的設定目錄為 `%APPDATA%/mpv`，portable_config 安裝則使用該目錄。
 
+在 Windows 的無邊框或隱藏標題列視窗中，影片區右上角的 `×` 可以關閉 mpv。全螢幕播放時，把滑鼠移到影片區右上角就會顯示這個按鈕。
+
 從 Stremio 選擇外部 mpv 後開啟串流，介面會跟著載入。可選取的字幕與音軌由傳入 mpv 的串流和外掛字幕決定。
 
 已在 macOS 用本機影片驗證自動載入、切換字幕與音軌、播放控制和拖曳。Stremio 實際串流與 Windows 待驗證。
