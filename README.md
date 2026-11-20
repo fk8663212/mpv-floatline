@@ -1,8 +1,8 @@
-# Floating mpv controls for Stremio
+# Minimal floating controls for mpv
 
 English · [繁體中文](README.zh-TW.md)
 
-A Lua script that adds a floating control bar and a subtitle and audio sidebar to the external mpv player opened by Stremio.
+A Lua script for mpv with a compact floating control bar and a sidebar for quickly switching subtitles and audio tracks.
 
 ![Floating controls in mpv](preview-floating-icons.png)
 
@@ -18,13 +18,15 @@ Drag the handle to move the controls. The bar hides when the mouse is idle durin
    | macOS | `~/.config/mpv` |
    | Windows | `%APPDATA%\mpv`, or `portable_config` next to `mpv.exe` for a portable install |
 
-3. Fully exit mpv. Open a video in Stremio and choose mpv as the external player.
+3. Fully exit mpv, then reopen it and play a video.
 
 On Windows, the player shows a close button at the upper-right of the video when window decorations are hidden. In fullscreen, move the pointer to that corner to reveal it.
 
 Track availability depends on the stream and subtitle files that mpv receives. If uosc is installed, its menus remain available alongside the floating controls.
 
-Autoload, track switching, playback controls, and dragging have been tested with local media on macOS. Stremio streaming and Windows hardware testing are pending.
+The script also loads when Stremio launches mpv as its external player with the same configuration.
+
+Autoload, track switching, playback controls, and dragging have been tested with local media on macOS. Windows hardware testing is pending.
 
 ## Interface language
 

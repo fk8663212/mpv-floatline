@@ -1,8 +1,8 @@
-# Stremio 外部 mpv 介面
+# mpv 簡約懸浮控制列
 
 [English](README.md) · 繁體中文
 
-這個 Lua 腳本會載入 Stremio 呼叫的 mpv 視窗。預設的 540px 懸浮控制列採用深色圓角、線條圖示與薄荷綠滑桿。播放時滑鼠閒置會自動收起控制列，拖曳頂端短線可重新定位。
+這個 Lua 腳本為 mpv 加上可拖曳的懸浮控制列，並提供可快速切換字幕和音軌的側欄。預設的 540px 控制列採用深色圓角、線條圖示與薄荷綠滑桿。播放時滑鼠閒置會自動收起控制列，拖曳頂端短線可重新定位。
 
 ![mpv 懸浮控制列播放畫面](preview-floating-icons.png)
 
@@ -20,11 +20,13 @@ macOS 將 `modern-osc.lua` 放入 `~/.config/mpv/scripts/`，`modern-osc.conf` �
 
 Windows 將兩個檔案分別放入 mpv 設定目錄的 `scripts` 與 `script-opts` 子目錄。常見的設定目錄為 `%APPDATA%/mpv`，portable_config 安裝則使用該目錄。
 
+安裝完成後，完整退出 mpv，再重新開啟並播放影片。
+
 在 Windows 的無邊框或隱藏標題列視窗中，影片區右上角的 `×` 可以關閉 mpv。全螢幕播放時，把滑鼠移到影片區右上角就會顯示這個按鈕。
 
-從 Stremio 選擇外部 mpv 後開啟串流，介面會跟著載入。可選取的字幕與音軌由傳入 mpv 的串流和外掛字幕決定。
+可選取的字幕與音軌由 mpv 載入的影片、串流和外掛字幕決定。Stremio 若以同一份設定開啟外部 mpv，也會載入這個介面。
 
-已在 macOS 用本機影片驗證自動載入、切換字幕與音軌、播放控制和拖曳。Stremio 實際串流與 Windows 待驗證。
+已在 macOS 用本機影片驗證自動載入、切換字幕與音軌、播放控制和拖曳。Windows 實機待驗證。
 
 ## 介面語言
 
@@ -41,7 +43,7 @@ Windows 將兩個檔案分別放入 mpv 設定目錄的 `scripts` 與 `script-op
 
 ## 自訂主題與布局
 
-編輯 `script-opts/modern-osc.conf`，完整退出 mpv 後重新從 Stremio 開啟影片，即可套用設定。
+編輯 `script-opts/modern-osc.conf` 後，完整退出並重開 mpv 即可套用設定。
 
 | 設定 | 可用值與用途 |
 | --- | --- |
@@ -88,5 +90,3 @@ radius=0
 ```
 
 窄視窗會採用覆蓋式側欄，並在選軌時收起懸浮控制列。收合側欄後可繼續使用控制列。視窗高度較低時，兩組軌道會以分頁顯示。
-
-變更按鍵、側欄位置與色彩後，Stremio 會繼續使用原本設定的外部 mpv 入口載入這份介面。
